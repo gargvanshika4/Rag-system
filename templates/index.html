@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KnowledgeGraphRAG</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <style>
+    :root {
+      --bg: #f7f0f6;
+      --panel: #ffffff;
+      --panel-soft: #fcf8fb;
+      --text: #241321;
+      --muted: #735f70;
+      --line: #eaddea;
+      --tyrian: #4F0341;
+      --tyrian-2: #6d0a5d;
+      --pastel: #C5ADC5;
+      --steel: #B2B5E0;
+      --accent-soft: #f4eaf4;
+      --steel-soft: #f0f1fb;
+      --good: #4f8f65;
+      --shadow: 0 18px 42px rgba(79, 3, 65, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 9% 4%, rgba(79, 3, 65, 0.20), transparent 26%),
+        radial-gradient(circle at 75% 6%, rgba(178, 181, 224, 0.48), transparent 32%),
+        linear-gradient(135deg, #ffffff 0%, var(--bg) 54%, #f8f8ff 100%);
+      color: var(--text);
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      letter-spacing: 0;
+    }
+    button, textarea, input { font: inherit; }
+    button { cursor: pointer; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 248px minmax(0, 1fr) 330px;
+      overflow-x: hidden;
+    }
+
+    .sidebar {
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(10px);
+      border-right: 1px solid var(--line);
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    .brand {
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      line-height: 1.15;
+    }
+
+    .brand span:last-child {
+      overflow-wrap: anywhere;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      color: white;
+      flex: 0 0 auto;
+      background: linear-gradient(135deg, var(--tyrian), var(--steel));
+      box-shadow: 0 8px 20px rgba(79, 3, 65, 0.28);
+    }
+
+    .subtitle, .muted {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .nav {
+      display: grid;
+      gap: 8px;
+    }
+
+    .nav button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      text-align: left;
+      font-weight: 650;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .nav button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(45, 77, 130, 0.10);
+    }
+
+    .nav button.active {
+      background: linear-gradient(135deg, var(--tyrian), var(--tyrian-2));
+      border-color: var(--tyrian);
+      color: #ffffff;
+    }
+
+    .dropzone {
+      border: 2px dashed var(--pastel);
+      border-radius: 16px;
+      min-height: 130px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 14px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.78), rgba(252,248,251,0.96)),
+        repeating-linear-gradient(45deg, rgba(79,3,65,0.045) 0 8px, transparent 8px 16px);
+      transition: border-color 0.15s ease, transform 0.15s ease;
+    }
+
+    .dropzone:hover {
+      transform: translateY(-1px);
+    }
+
+    .dropzone.drag {
+      border-color: var(--tyrian);
+      background: linear-gradient(135deg, var(--accent-soft), var(--steel-soft));
+      color: var(--tyrian);
+    }
+
+    main {
+      padding: 26px 28px;
+      overflow: auto;
+      min-width: 0;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.92), rgba(255,255,255,0.72)),
+        linear-gradient(135deg, rgba(79,3,65,0.08), rgba(178,181,224,0.16));
+      box-shadow: var(--shadow);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      letter-spacing: 0;
+      color: var(--tyrian);
+    }
+
+    .hero-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.75);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .hero-note::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--tyrian);
+      display: inline-block;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .stat {
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat::after {
+      content: "";
+      position: absolute;
+      width: 70px;
+      height: 70px;
+      right: -24px;
+      top: -24px;
+      border-radius: 22px;
+      background: rgba(79, 3, 65, 0.08);
+      transform: rotate(18deg);
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 800;
+      margin-top: 5px;
+      color: var(--tyrian);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .chat-card {
+      min-height: 640px;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-weight: 750;
+    }
+
+    .pill {
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 12px;
+      background: var(--accent-soft);
+      color: var(--tyrian);
+      font-weight: 650;
+    }
+
+    .messages {
+      flex: 1;
+      overflow: auto;
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      padding-bottom: 12px;
+      min-height: 0;
+    }
+
+    .msg {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      line-height: 1.52;
+      white-space: pre-wrap;
+      background: var(--panel);
+    }
+
+    .msg.user {
+      background: linear-gradient(135deg, #fff9ff, var(--accent-soft));
+      border-color: var(--pastel);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 86px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      color: var(--text);
+      background: var(--panel-soft);
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: var(--tyrian);
+      box-shadow: 0 0 0 3px rgba(79, 3, 65, 0.12);
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 9px 12px;
+      font-weight: 700;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(79, 3, 65, 0.14);
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, var(--tyrian), var(--tyrian-2));
+      border-color: var(--tyrian);
+      color: #ffffff;
+    }
+
+    .sources-card {
+      padding: 16px;
+      min-height: 640px;
+    }
+
+    .source {
+      border-bottom: 1px solid var(--line);
+      padding: 11px 0;
+    }
+
+    .source:last-child { border-bottom: 0; }
+
+    .confidence {
+      height: 8px;
+      border-radius: 999px;
+      background: #e5eaf2;
+      overflow: hidden;
+      margin: 7px 0 4px;
+    }
+
+    .confidence span {
+      display: block;
+      height: 100%;
+      background: var(--good);
+    }
+
+    .right-panel {
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(10px);
+      border-left: 1px solid var(--line);
+      padding: 18px;
+      overflow: auto;
+    }
+
+    .citation {
+      border-bottom: 1px solid var(--line);
+      padding: 12px 0;
+      line-height: 1.45;
+      font-size: 13px;
+    }
+
+    .citation:last-child { border-bottom: 0; }
+
+    #graphView { display: none; }
+    #graphView.active { display: block; }
+    #chatView.hidden { display: none; }
+
+    .graph-shell {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 10px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    #graph {
+      width: 100%;
+      height: 640px;
+      display: block;
+      background:
+        linear-gradient(180deg, #ffffff, #fffbff);
+      border: 0;
+      border-radius: 16px;
+      box-shadow: none;
+      overflow: hidden;
+    }
+
+    .graph-card {
+      padding: 16px;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .mini-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      background: linear-gradient(180deg, #ffffff, #fbf7fd);
+      box-shadow: 0 8px 18px rgba(79, 3, 65, 0.07);
+    }
+
+    .hidden-input { display: none; }
+
+    @media (max-width: 1150px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar, .right-panel { border: 0; }
+      .workspace { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .sidebar { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div>
+        <div class="brand"><span class="brand-mark">KG</span><span>KnowledgeGraphRAG</span></div>
+        <div class="subtitle">Simple document intelligence</div>
+      </div>
+
+      <div class="nav">
+        <button class="active" id="chatTab">Chat</button>
+        <button id="graphTab">Graph</button>
+      </div>
+
+      <div class="mini-card">
+        <div class="panel-title">Upload</div>
+        <div id="dropzone" class="dropzone">
+          <div>
+            <strong>Drop files here</strong>
+            <div class="muted">PDF, DOCX, TXT, JSON, CSV, XLSX</div>
+          </div>
+        </div>
+        <input id="fileInput" class="hidden-input" type="file" multiple />
+        <div id="uploadStatus" class="muted" style="margin-top:8px;"></div>
+      </div>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <div>
+          <h1>Research Graph RAG</h1>
+          <div class="muted">Hybrid retrieval with graph citations and confidence scoring</div>
+          <div class="hero-note">Built for document Q&A, sources, and relationship discovery</div>
+        </div>
+      </div>
+
+      <section class="stats">
+        <div class="card stat"><div class="muted">Chunks</div><div class="stat-value" id="mChunks">-</div></div>
+        <div class="card stat"><div class="muted">Graph nodes</div><div class="stat-value" id="mNodes">-</div></div>
+        <div class="card stat"><div class="muted">Edges</div><div class="stat-value" id="mEdges">-</div></div>
+        <div class="card stat"><div class="muted">Index</div><div class="stat-value" id="mIndex" style="font-size:18px;">-</div></div>
+      </section>
+
+      <section id="chatView" class="workspace">
+        <div class="card chat-card">
+          <div class="panel-title">
+            <span>Assistant</span>
+            <span id="conversationId" class="pill"></span>
+          </div>
+          <div class="messages" id="messages"></div>
+          <textarea id="queryInput" placeholder="Ask about invoices, suppliers, purchase orders, or uploaded documents"></textarea>
+          <div class="actions">
+            <button class="btn primary" id="askBtn">Ask</button>
+            <button class="btn" id="reloadBtn">Rebuild</button>
+            <button class="btn" id="clearHistoryBtn">Clear Chat</button>
+          </div>
+        </div>
+
+        <div class="card sources-card">
+          <div class="panel-title">
+            <span>Retrieval Confidence</span>
+            <span id="confidenceLabel" class="pill">-</span>
+          </div>
+          <div id="sources" class="muted">Ask a question to see ranked sources.</div>
+        </div>
+      </section>
+
+      <section id="graphView">
+        <div class="card graph-card">
+          <div class="panel-title">
+            <span>Knowledge Graph</span>
+            <button class="btn" id="refreshGraph">Refresh</button>
+          </div>
+          <div class="graph-shell">
+            <svg id="graph"></svg>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <section class="right-panel">
+      <div class="panel-title">Source Citations</div>
+      <div id="citationPanel" class="muted">Sources will appear after a query.</div>
+    </section>
+  </div>
+
+  <script>
+    const state = {
+      conversationId: localStorage.getItem('kg_conversation') || crypto.randomUUID(),
+      lastQuery: ''
+    };
+    localStorage.setItem('kg_conversation', state.conversationId);
+
+    const $ = id => document.getElementById(id);
+    $('conversationId').textContent = state.conversationId.slice(0, 8);
+
+    $('chatTab').onclick = () => switchView('chat');
+    $('graphTab').onclick = () => switchView('graph');
+    $('askBtn').onclick = ask;
+    $('refreshGraph').onclick = loadGraph;
+    $('reloadBtn').onclick = async () => {
+      $('reloadBtn').disabled = true;
+      await fetch('/api/reload', { method: 'POST' });
+      await loadStats();
+      $('reloadBtn').disabled = false;
+    };
+    $('clearHistoryBtn').onclick = async () => {
+      await fetch(`/api/history/${state.conversationId}`, { method: 'DELETE' });
+      $('messages').innerHTML = '';
+    };
+    $('queryInput').addEventListener('keydown', event => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        ask();
+      }
+    });
+
+    function switchView(view) {
+      $('chatTab').classList.toggle('active', view === 'chat');
+      $('graphTab').classList.toggle('active', view === 'graph');
+      $('chatView').classList.toggle('hidden', view !== 'chat');
+      $('graphView').classList.toggle('active', view === 'graph');
+      if (view === 'graph') loadGraph();
+    }
+
+    function addMessage(role, text) {
+      const div = document.createElement('div');
+      div.className = `msg ${role}`;
+      div.textContent = text;
+      $('messages').appendChild(div);
+      $('messages').scrollTop = $('messages').scrollHeight;
+    }
+
+    async function ask() {
+      const query = $('queryInput').value.trim();
+      if (!query) return;
+
+      state.lastQuery = query;
+      addMessage('user', query);
+      $('queryInput').value = '';
+      $('askBtn').disabled = true;
+
+      try {
+        const response = await fetch('/api/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query,
+            conversation_id: state.conversationId
+          })
+        });
+        const data = await response.json();
+        if (!data.success) {
+          addMessage('ai', data.error || 'Query failed.');
+          return;
+        }
+        addMessage('ai', data.answer);
+        renderSources(data.sources || data.search_results || [], data.confidence);
+        await loadGraph();
+      } catch (error) {
+        addMessage('ai', error.message || 'Request failed.');
+      } finally {
+        $('askBtn').disabled = false;
+      }
+    }
+
+    function renderSources(sources, confidence) {
+      $('confidenceLabel').textContent = confidence || '-';
+      $('sources').innerHTML = sources.map(src => {
+        const pct = Math.round((src.confidence_score || 0) * 100);
+        return `<div class="source">
+          <strong>${escapeHtml(src.citation || src.source)}</strong>
+          <div class="muted">${escapeHtml(src.document_type || src.type || '')}</div>
+          <div class="confidence"><span style="width:${pct}%"></span></div>
+          <div class="muted">${pct}% confidence</div>
+        </div>`;
+      }).join('') || '<div class="muted">No sources found.</div>';
+
+      $('citationPanel').innerHTML = sources.map(src => `
+        <div class="citation">
+          <strong>${escapeHtml(src.citation || src.source)}</strong>
+          <p>${escapeHtml((src.text || '').slice(0, 520))}</p>
+        </div>
+      `).join('') || 'Sources will appear after a query.';
+    }
+
+    async function loadStats() {
+      try {
+        const data = await fetch('/api/stats').then(r => r.json());
+        $('mChunks').textContent = data.total_chunks || 0;
+        $('mNodes').textContent = data.total_nodes || 0;
+        $('mEdges').textContent = data.total_edges || 0;
+        $('mIndex').textContent = data.faiss_index || '-';
+      } catch {
+        $('mChunks').textContent = '...';
+      }
+    }
+
+    async function loadGraph() {
+      const data = await fetch('/api/graph-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: state.lastQuery })
+      }).then(r => r.json());
+      renderGraph(data);
+    }
+
+    function renderGraph(data) {
+      const svg = d3.select('#graph');
+      svg.selectAll('*').remove();
+      const width = $('graph').clientWidth || 900;
+      const height = 640;
+      svg.attr('viewBox', `0 0 ${width} ${height}`);
+
+      const nodes = (data.nodes || []).map(d => ({ ...d }));
+      const links = (data.links || []).map(d => ({ ...d }));
+      if (!nodes.length) {
+        svg.append('text')
+          .attr('x', 24)
+          .attr('y', 42)
+          .attr('fill', '#64748b')
+          .text('No graph data for this query yet. Ask a question or click Refresh.');
+        return;
+      }
+
+      const color = d3.scaleOrdinal()
+        .domain(['excel', 'document', 'supplier_name', 'document_number', 'amount', 'date', 'customer_name'])
+        .range(['#4F0341', '#B2B5E0', '#C5ADC5', '#7C2D70', '#4f8f65', '#8b8fcc', '#a64687']);
+
+      const g = svg.append('g');
+      svg.call(d3.zoom().scaleExtent([0.35, 4]).on('zoom', event => {
+        g.attr('transform', event.transform);
+      }));
+
+      const link = g.append('g')
+        .selectAll('line')
+        .data(links)
+        .join('line')
+        .attr('stroke', '#94a3b8')
+        .attr('stroke-opacity', 0.5)
+        .attr('stroke-width', d => 1 + (d.strength || 0.5) * 2);
+
+      const node = g.append('g')
+        .selectAll('g')
+        .data(nodes)
+        .join('g')
+        .call(d3.drag()
+          .on('start', (event, d) => {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+          })
+          .on('drag', (event, d) => {
+            d.fx = event.x;
+            d.fy = event.y;
+          })
+          .on('end', (event, d) => {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+          }));
+
+      node.append('circle')
+        .attr('r', 9)
+        .attr('fill', d => color(d.type || d.source || 'document'))
+        .attr('stroke', '#ffffff')
+        .attr('stroke-width', 2.5);
+
+      node.append('title').text(d => `${d.name}\n${d.type}\n${d.source}`);
+
+      node.append('text')
+        .text(d => d.name && d.name.length > 18 ? d.name.slice(0, 18) : d.name)
+        .attr('x', 12)
+        .attr('y', 4)
+        .attr('fill', '#4F0341')
+        .attr('font-size', 10);
+
+      const simulation = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).id(d => d.id).distance(90))
+        .force('charge', d3.forceManyBody().strength(-190))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide(26));
+
+      simulation.on('tick', () => {
+        link
+          .attr('x1', d => d.source.x)
+          .attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x)
+          .attr('y2', d => d.target.y);
+        node.attr('transform', d => `translate(${d.x},${d.y})`);
+      });
+    }
+
+    const dropzone = $('dropzone');
+    dropzone.onclick = () => $('fileInput').click();
+    dropzone.ondragover = event => {
+      event.preventDefault();
+      dropzone.classList.add('drag');
+    };
+    dropzone.ondragleave = () => dropzone.classList.remove('drag');
+    dropzone.ondrop = event => {
+      event.preventDefault();
+      dropzone.classList.remove('drag');
+      uploadFiles(event.dataTransfer.files);
+    };
+    $('fileInput').onchange = event => uploadFiles(event.target.files);
+
+    async function uploadFiles(files) {
+      const form = new FormData();
+      [...files].forEach(file => form.append('files', file));
+      $('uploadStatus').textContent = 'Uploading and rebuilding index...';
+      const data = await fetch('/api/upload', { method: 'POST', body: form }).then(r => r.json());
+      $('uploadStatus').textContent = data.success ? `Indexed ${data.files.length} file(s)` : data.error;
+      await loadStats();
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    loadStats();
+  </script>
+</body>
+</html>
